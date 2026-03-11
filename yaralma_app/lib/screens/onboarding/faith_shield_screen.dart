@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../router/app_router.dart';
+import '../../services/profile_repository.dart';
 
 /// FR-02: Faith Shield selection — Mouride, Tijaniyya, General Muslim, Christian.
 class FaithShieldScreen extends StatelessWidget {
@@ -59,8 +60,8 @@ class FaithShieldScreen extends StatelessWidget {
     );
   }
 
-  void _onSelect(BuildContext context, String faithShield) {
-    // TODO: persist to Supabase profiles.faith_shield
-    context.go(AppRoutes.pathHome);
+  void _onSelect(BuildContext context, String faithShield) async {
+    await ProfileRepository.saveFaithShield(faithShield);
+    if (context.mounted) context.go(AppRoutes.pathHome);
   }
 }

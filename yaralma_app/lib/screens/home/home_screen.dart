@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kIsWeb, TargetPlatform, defaultTargetPlatform;
 
+import '../../services/settings_launcher.dart';
+
 /// Post-onboarding home: settings, accessibility setup (FR-03), account link placeholder.
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -48,8 +50,8 @@ class HomeScreen extends StatelessWidget {
                   leading: const Icon(Icons.accessibility_new),
                   title: const Text('Enable overlay (Accessibility)'),
                   subtitle: const Text('FR-03: Turn on YARALMA Shield in system settings'),
-                  onTap: () {
-                    // TODO: open Android accessibility settings
+                  onTap: () async {
+                    await SettingsLauncher.openAccessibilitySettings();
                   },
                 ),
               )
