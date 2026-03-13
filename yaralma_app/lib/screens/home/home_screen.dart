@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kIsWeb, TargetPlatform, defaultTargetPlatform;
+import 'package:go_router/go_router.dart';
 
+import '../../router/app_router.dart';
 import '../../services/settings_launcher.dart';
 
 /// Post-onboarding home: settings, accessibility setup (FR-03), account link placeholder.
@@ -87,8 +89,8 @@ class HomeScreen extends StatelessWidget {
               child: ListTile(
                 leading: const Icon(Icons.schedule),
                 title: const Text('Holy Lock schedule'),
-                subtitle: const Text('Prayer times & Mass — Phase 7'),
-                onTap: () {},
+                subtitle: const Text('Prayer times & Mass'),
+                onTap: () => context.push(AppRoutes.pathHolyLock),
               ),
             ),
           ],

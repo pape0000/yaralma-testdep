@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/holy-lock",
+      "schedule": "*/5 * * * *"
+    }
+  ]
+}
