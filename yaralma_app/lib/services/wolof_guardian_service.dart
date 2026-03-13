@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -8,14 +9,62 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 /// Free tier: ~30K requests/month via Hugging Face Inference API.
 class WolofGuardianService {
   static String? _apiBaseUrl;
+  static bool _isMonitoring = false;
+
+  static const _wolofChannel = MethodChannel('com.yaralma.yaralma_app/wolof');
+  static const _prefsChannel = MethodChannel('com.yaralma.yaralma_app/prefs');
 
   /// Set the API base URL (your Vercel deployment URL).
-  static void configure({required String apiBaseUrl}) {
+  static Future<void> configure({required String apiBaseUrl}) async {
     _apiBaseUrl = apiBaseUrl;
+    // Sync to native for the background service
+    try {
+      await _prefsChannel.invokeMethod('setWolofApiUrl', {'url': apiBaseUrl});
+    } catch (e) {
+      // Platform channel might not be available
+    }
   }
 
   /// Check if Wolof Guardian is configured and available.
   static bool isAvailable() => _apiBaseUrl != null && _apiBaseUrl!.isNotEmpty;
+
+  /// Check if real-time audio monitoring is currently active.
+  static bool isMonitoring() => _isMonitoring;
+
+  /// Check if audio capture is supported on this device (Android 10+).
+  static Future<bool> isAudioCaptureSupported() async {
+    try {
+      final supported = await _wolofChannel.invokeMethod<bool>('isAudioCaptureSupported');
+      return supported ?? false;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  /// Start real-time audio monitoring.
+  /// Requires user permission for screen/audio capture.
+  static Future<bool> startMonitoring() async {
+    if (!isAvailable()) return false;
+
+    try {
+      final result = await _wolofChannel.invokeMethod<bool>('startAudioCapture');
+      _isMonitoring = result ?? false;
+      return _isMonitoring;
+    } catch (e) {
+      _isMonitoring = false;
+      return false;
+    }
+  }
+
+  /// Stop real-time audio monitoring.
+  static Future<void> stopMonitoring() async {
+    try {
+      await _wolofChannel.invokeMethod('stopAudioCapture');
+      _isMonitoring = false;
+    } catch (e) {
+      _isMonitoring = false;
+    }
+  }
 
   /// Transcribe audio using Hugging Face Wolof ASR.
   /// [audioBase64] - Base64 encoded WAV audio data.

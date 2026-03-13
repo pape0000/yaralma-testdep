@@ -15,7 +15,7 @@ Before starting Task 1, ensure you can log into all these accounts:
 - **Supabase Auth:** Enable Auth in Supabase (Dashboard > Authentication > Providers). Use at least Email or Google so `auth.users` exists and `profiles.id` can reference it. After creating the `profiles` table, add **RLS policies** in SQL Editor so users can read/update their own row, e.g. `create policy "Users can read own profile" on profiles for select using (auth.uid() = id);` and `create policy "Users can update own profile" on profiles for update using (auth.uid() = id);`. (Use `insert` with `with check` for sign-up if you create profile on first login.)
 - **WhatsApp → which user?** When someone sends LOCK via WhatsApp, the backend must know which Supabase profile to update. Add a way to link a phone number to a profile: e.g. a column `profiles.whatsapp_phone` (E.164) or a small table `user_whatsapp(user_id, phone)`. When the parent registers, they enter their WhatsApp number; the Twilio webhook uses the incoming "From" number to look up the profile and set `is_locked` for that user.
 - **Twilio webhook:** After deploying the Vercel function, in Twilio Console go to WhatsApp Sandbox (or your WhatsApp sender) and set the "When a message comes in" URL to `https://your-app.vercel.app/api/whatsapp` (and POST).
-- **Parent vs child device:** The same app runs on the parent’s phone (setup) and the child’s device (overlay). The child device must subscribe to the correct profile (e.g. same Supabase user if the parent logs in on both, or a “link code” flow so the child device is tied to the parent’s profile). Decide early: single-account (parent logs in on child device) or link-by-code so the child device only gets overlay + realtime for that family.
+- **Parent vs child device:** The same app runs on the parent's phone (setup) and the child's device (overlay). The child device must subscribe to the correct profile (e.g. same Supabase user if the parent logs in on both, or a "link code" flow so the child device is tied to the parent's profile). Decide early: single-account (parent logs in on child device) or link-by-code so the child device only gets overlay + realtime for that family.
 - **Flutter package name:** When you run `flutter create .`, use an org so the Android package is correct from the start, e.g. `flutter create --org com.yaralma .`. Then the Kotlin path will be `com/yaralma/yaralma_app/` (or similar); adjust the Phase 3 path and manifest if you use a different org.
 
 🏗 Phase 1: Local Project Foundation
@@ -93,14 +93,14 @@ Goal: Implement the mandatory flow before settings (per PRD FR-01, FR-02).
 
 ⏳ Phase 7: Holy Lock — Prayer Times & Mass (Backend + Overlay)
 Goal: Full-screen lock during Islamic prayer times and Sunday Mass (FR-09, FR-10, FR-11).
-- **Prayer times API:** Use a free API by location, e.g. **Aladhan API** (https://aladhan.com/prayer-times-api — free, no API key for basic use) or **IslamicAPI** (free tier with sign-up). Pass the user’s lat/lng (from GPS or stored in profile); get daily prayer times and write lock windows to Supabase. If the chosen API requires a key, store it in Supabase secrets or Vercel env.
+- **Prayer times API:** Use a free API by location, e.g. **Aladhan API** (https://aladhan.com/prayer-times-api — free, no API key for basic use) or **IslamicAPI** (free tier with sign-up). Pass the user's lat/lng (from GPS or stored in profile); get daily prayer times and write lock windows to Supabase. If the chosen API requires a key, store it in Supabase secrets or Vercel env.
 - Add a schedule table or config in Supabase (e.g. lock_windows: user_id, start_time, end_time, type: 'prayer' | 'mass' | 'ramadan' | 'lent'). Compute prayer times from the API above; for Christian profiles add Sunday 08:00–11:30.
 - The Android overlay already reacts to `is_locked`. Extend the backend (or a scheduled job) to set `is_locked = true` during these windows and clear it after.
 - Optional for MVP: Ramadan Mode and Lent Mode as automatic schedule adjustments (FR-11).
 
 📊 Phase 8: Jom Report — WhatsApp Sunday Summary (Vercel + Twilio)
 Goal: Automated Sunday morning summary per family (FR-12).
-- Add a Vercel Cron (or scheduled function) that runs Sunday morning. For each user with WhatsApp linked, query Supabase for the past week’s stats (e.g. screen time, locks honored, Shorts blocked) and send a formatted “Jom Report” via the Twilio WhatsApp API.
+- Add a Vercel Cron (or scheduled function) that runs Sunday morning. For each user with WhatsApp linked, query Supabase for the past week's stats (e.g. screen time, locks honored, Shorts blocked) and send a formatted "Jom Report" via the Twilio WhatsApp API.
 - Reuse the same Twilio/WhatsApp configuration as the LOCK bot.
 
 🦁 Phase 9: YouTube Guardian — Shorts, Search, Explore/Kids (API + Overlay)
@@ -111,12 +111,17 @@ Goal: Align with FR-04, FR-05, FR-06.
 
 🎬 Phase 10: Netflix Overlay — Blur List & Thumbnails (Overlay + Data)
 Goal: Real-time blur and catalog filtering (FR-07, FR-08).
-- Create or ingest the “Lion Guardian” list: community-sourced timestamps (title/episode + start/end) for scenes to blur. Store in Supabase or a static config the overlay can fetch.
+- Create or ingest the "Lion Guardian" list: community-sourced timestamps (title/episode + start/end) for scenes to blur. Store in Supabase or a static config the overlay can fetch.
 - The accessibility service overlays a blur when the current playback time matches a timestamp. For catalog thumbnails, maintain a list of title IDs (or images) to hide in the Netflix UI and implement hiding/blurring in the overlay when those thumbnails are on screen.
 
-👂 Phase 11: Wolof Guardian (ASR) — Placeholder
+👂 Phase 11: Wolof Guardian (ASR) — Real-Time Audio Monitoring ✅
 Goal: Real-time mute of inappropriate Wolof (and local French) dialogue (PRD: Wolof acoustic model).
-- This depends on a specialized Wolof ASR model and real-time audio pipeline. For the MVP build, document the integration point: the overlay (or a companion service) will receive “mute for N seconds” signals when the ASR detects blocked keywords. Defer full implementation until the Wolof model and keyword list are ready.
+- **ASR Model:** SpeechBrain wav2vec2 for Wolof via Hugging Face Inference API (free tier: ~30K requests/month).
+- **Audio Capture:** Android 10+ AudioPlaybackCapture API via foreground service (`WolofAudioService.kt`).
+- **Pipeline:** 3-second audio chunks → Vercel API → Hugging Face ASR → keyword check → auto-mute.
+- **Auto-Mute:** Device audio muted for 5 seconds with red banner overlay when blocked content detected.
+- **Flutter UI:** Start/Stop monitoring toggle on Wolof Guardian screen.
+- **Requires:** `HUGGINGFACE_API_TOKEN` in Vercel environment variables.
 
 💡 Troubleshooting for Beginners
 Permissions: If the overlay doesn't appear, 99% of the time the Accessibility Service isn't turned on in the phone's settings.
