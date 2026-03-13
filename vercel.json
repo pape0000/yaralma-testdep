@@ -2,11 +2,11 @@
   "crons": [
     {
       "path": "/api/cron/holy-lock",
-      "schedule": "*/5 * * * *"
+      "schedule": "0 5 * * *"
     },
     {
       "path": "/api/cron/jom-report",
-      "schedule": "0 8 * * 0"
+      "schedule": "0 8 * * *"
     }
   ]
 }
