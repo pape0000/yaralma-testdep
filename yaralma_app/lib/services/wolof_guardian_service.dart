@@ -1,62 +1,103 @@
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+import 'package:supabase_flutter/supabase_flutter.dart';
+
 /// Wolof Guardian: Real-time audio monitoring for inappropriate Wolof/French content.
 ///
-/// This is a PLACEHOLDER for future ASR (Automatic Speech Recognition) integration.
-///
-/// When implemented, this service will:
-/// 1. Capture audio stream from YouTube/Netflix playback
-/// 2. Send to a Wolof ASR model for transcription
-/// 3. Check transcription against blocked keywords
-/// 4. Trigger mute signal when inappropriate content detected
-///
-/// Dependencies needed:
-/// - Wolof ASR model (not yet available)
-/// - Audio capture permission (requires special handling on Android)
-/// - Real-time audio streaming infrastructure
-///
-/// For MVP: This placeholder documents the integration point.
+/// Uses Hugging Face's SpeechBrain wav2vec2 model for Wolof ASR.
+/// Free tier: ~30K requests/month via Hugging Face Inference API.
 class WolofGuardianService {
-  /// Placeholder: Check if Wolof Guardian is available.
-  /// Returns false until ASR model is integrated.
-  static bool isAvailable() => false;
+  static String? _apiBaseUrl;
 
-  /// Placeholder: Start audio monitoring.
-  /// No-op until ASR integration is complete.
-  static Future<void> startMonitoring() async {
-    // TODO: Implement when Wolof ASR model is ready
-    // 1. Request microphone/audio capture permission
-    // 2. Initialize ASR model
-    // 3. Start audio stream capture
-    // 4. Process audio in real-time
+  /// Set the API base URL (your Vercel deployment URL).
+  static void configure({required String apiBaseUrl}) {
+    _apiBaseUrl = apiBaseUrl;
   }
 
-  /// Placeholder: Stop audio monitoring.
-  static Future<void> stopMonitoring() async {
-    // TODO: Clean up audio stream and ASR resources
+  /// Check if Wolof Guardian is configured and available.
+  static bool isAvailable() => _apiBaseUrl != null && _apiBaseUrl!.isNotEmpty;
+
+  /// Transcribe audio using Hugging Face Wolof ASR.
+  /// [audioBase64] - Base64 encoded WAV audio data.
+  /// Returns the transcription text.
+  static Future<String?> transcribeAudio(String audioBase64) async {
+    if (!isAvailable()) return null;
+
+    try {
+      final response = await http.post(
+        Uri.parse('$_apiBaseUrl/api/wolof-transcribe'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({'audioBase64': audioBase64}),
+      );
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        return data['transcription'] as String?;
+      }
+      return null;
+    } catch (e) {
+      return null;
+    }
   }
 
-  /// Placeholder: Get blocked Wolof keywords.
-  static List<String> getBlockedWolofKeywords() {
-    return [
-      'takk',
-      'jigeen bu nit',
-      'gor bu nit',
-      // Add more Wolof keywords when ASR is ready
-    ];
+  /// Check transcription for blocked Wolof/French keywords.
+  /// Returns true if content should be muted.
+  static Future<MuteCheckResult> checkForBlockedContent(String transcription) async {
+    if (!isAvailable()) {
+      return MuteCheckResult(shouldMute: false, foundKeywords: []);
+    }
+
+    try {
+      final response = await http.post(
+        Uri.parse('$_apiBaseUrl/api/wolof-check'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({'transcription': transcription}),
+      );
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        return MuteCheckResult(
+          shouldMute: data['shouldMute'] as bool? ?? false,
+          foundKeywords: List<String>.from(data['foundKeywords'] ?? []),
+        );
+      }
+      return MuteCheckResult(shouldMute: false, foundKeywords: []);
+    } catch (e) {
+      return MuteCheckResult(shouldMute: false, foundKeywords: []);
+    }
   }
 
-  /// Placeholder: Process audio chunk.
-  /// Would send to ASR and check for blocked keywords.
-  static Future<bool> processAudioChunk(List<int> audioData) async {
-    // TODO: Send to Wolof ASR model
-    // TODO: Check transcription for blocked keywords
-    // TODO: Return true if inappropriate content detected
-    return false;
+  /// Process audio chunk: transcribe and check for blocked content.
+  /// Returns true if inappropriate content detected (should mute).
+  static Future<bool> processAudioChunk(String audioBase64) async {
+    final transcription = await transcribeAudio(audioBase64);
+    if (transcription == null || transcription.isEmpty) return false;
+
+    final result = await checkForBlockedContent(transcription);
+    return result.shouldMute;
   }
 
-  /// Placeholder: Mute audio for duration.
-  /// Would signal the accessibility service to mute playback.
-  static Future<void> muteForDuration(Duration duration) async {
-    // TODO: Send mute signal to accessibility service
-    // TODO: Schedule unmute after duration
+  /// Get blocked Wolof keywords from Supabase.
+  static Future<List<String>> getBlockedWolofKeywords() async {
+    try {
+      final supabase = Supabase.instance.client;
+      final response = await supabase
+          .from('blocked_keywords')
+          .select('keyword')
+          .inFilter('language', ['wolof', 'french']);
+
+      return (response as List).map((k) => k['keyword'] as String).toList();
+    } catch (e) {
+      // Fallback to default keywords
+      return ['takk', 'jigeen bu nit', 'gor bu nit'];
+    }
   }
+}
+
+/// Result of checking transcription for blocked content.
+class MuteCheckResult {
+  final bool shouldMute;
+  final List<String> foundKeywords;
+
+  MuteCheckResult({required this.shouldMute, required this.foundKeywords});
 }

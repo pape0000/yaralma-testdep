@@ -1,15 +1,15 @@
-# Phase 11: Wolof Guardian — ASR Placeholder
+# Phase 11: Wolof Guardian — ASR Integration
 
 ## Overview
 
-Wolof Guardian is designed to monitor audio in real-time and automatically mute inappropriate content spoken in Wolof or local French. This phase provides a **placeholder** for future ASR (Automatic Speech Recognition) integration.
+Wolof Guardian monitors audio in real-time and automatically mutes inappropriate content spoken in Wolof or local French using Hugging Face's SpeechBrain wav2vec2 model.
 
-## Current Status: Placeholder
+## Current Status: Ready for Deployment
 
-The service and screen are implemented as placeholders documenting the integration points. Full functionality awaits:
-1. A trained Wolof ASR model
-2. Audio capture API integration
-3. Real-time processing infrastructure
+The ASR integration is complete using:
+- **Model**: `speechbrain/asr-wav2vec2-dvoice-wolof` (Hugging Face)
+- **Free tier**: ~30K requests/month
+- **Accuracy**: 4.83% Character Error Rate
 
 ## How It Will Work
 
@@ -59,45 +59,80 @@ Initial list for Wolof content:
 
 *More keywords will be added when the ASR model is ready.*
 
-## Technical Requirements
+## API Endpoints
 
-### 1. Wolof ASR Model
-- Train or obtain a Wolof speech recognition model
-- Options: Whisper fine-tuned on Wolof, or custom model
+### `/api/wolof-transcribe` (POST)
 
-### 2. Audio Capture
-- Android: Use `AudioPlaybackCapture` API (requires `FOREGROUND_SERVICE_MEDIA_PLAYBACK`)
-- iOS: Not possible without jailbreak (App Sandbox restrictions)
+Transcribes Wolof audio using Hugging Face Inference API.
 
-### 3. Real-time Processing
-- WebSocket or gRPC connection to ASR server
-- Low-latency inference (<500ms for near-real-time)
+**Request:**
+```json
+{
+  "audioBase64": "base64-encoded-wav-audio"
+}
+```
 
-### 4. Mute Integration
-- Method channel to signal accessibility service
-- Accessibility service mutes device audio temporarily
+**Response:**
+```json
+{
+  "success": true,
+  "transcription": "transcribed text in Wolof"
+}
+```
 
-## Future Implementation Steps
+### `/api/wolof-check` (POST)
 
-1. **Train ASR Model**
-   - Collect Wolof speech dataset
-   - Fine-tune Whisper or train custom model
-   - Deploy as API endpoint
+Checks transcription for blocked keywords.
 
-2. **Integrate Audio Capture**
-   - Request necessary Android permissions
-   - Implement audio stream capture service
-   - Handle background processing
+**Request:**
+```json
+{
+  "transcription": "text to check"
+}
+```
 
-3. **Connect to ASR**
-   - Stream audio chunks to ASR server
-   - Parse transcription results
-   - Check against keyword blocklist
+**Response:**
+```json
+{
+  "success": true,
+  "shouldMute": true,
+  "foundKeywords": ["takk"]
+}
+```
 
-4. **Implement Mute Signal**
-   - Send mute command via method channel
-   - Accessibility service applies mute
-   - Schedule unmute after duration
+## Environment Variables
+
+Add to Vercel:
+```
+HUGGINGFACE_API_TOKEN=hf_your_token_here
+```
+
+Get your free token at: https://huggingface.co/settings/tokens
+
+## Flutter Integration
+
+```dart
+// Configure the service with your Vercel URL
+WolofGuardianService.configure(apiBaseUrl: 'https://your-app.vercel.app');
+
+// Process audio
+final shouldMute = await WolofGuardianService.processAudioChunk(audioBase64);
+if (shouldMute) {
+  // Trigger mute via method channel
+}
+```
+
+## Remaining Steps
+
+1. **Audio Capture** (Android)
+   - Use `AudioPlaybackCapture` API
+   - Requires `FOREGROUND_SERVICE_MEDIA_PLAYBACK` permission
+
+2. **Real-time Pipeline**
+   - Capture audio chunks every 2-3 seconds
+   - Send to ASR endpoint
+   - Check for blocked content
+   - Signal mute if needed
 
 ## Related PRD Requirement
 

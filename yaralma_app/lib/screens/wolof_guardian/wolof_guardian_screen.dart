@@ -2,10 +2,31 @@ import 'package:flutter/material.dart';
 
 import '../../services/wolof_guardian_service.dart';
 
-/// Wolof Guardian placeholder screen.
-/// Shows status and information about upcoming ASR integration.
-class WolofGuardianScreen extends StatelessWidget {
+/// Wolof Guardian screen with ASR integration status.
+class WolofGuardianScreen extends StatefulWidget {
   const WolofGuardianScreen({super.key});
+
+  @override
+  State<WolofGuardianScreen> createState() => _WolofGuardianScreenState();
+}
+
+class _WolofGuardianScreenState extends State<WolofGuardianScreen> {
+  List<String> _keywords = [];
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadKeywords();
+  }
+
+  Future<void> _loadKeywords() async {
+    final keywords = await WolofGuardianService.getBlockedWolofKeywords();
+    setState(() {
+      _keywords = keywords;
+      _loading = false;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -111,22 +132,37 @@ class WolofGuardianScreen extends StatelessWidget {
             ),
             const SizedBox(height: 24),
 
-            // Blocked keywords preview
+        // Blocked keywords
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
             Text(
-              'Blocked Keywords (Preview)',
+              'Blocked Keywords',
               style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
             ),
-            const SizedBox(height: 12),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: WolofGuardianService.getBlockedWolofKeywords()
-                  .map((k) => Chip(
-                        label: Text(k),
-                        backgroundColor: theme.colorScheme.surfaceContainerHighest,
-                      ))
-                  .toList(),
-            ),
+            if (!_loading)
+              Text(
+                '${_keywords.length} keywords',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        if (_loading)
+          const Center(child: CircularProgressIndicator())
+        else
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: _keywords
+                .map((k) => Chip(
+                      label: Text(k),
+                      backgroundColor: theme.colorScheme.surfaceContainerHighest,
+                    ))
+                .toList(),
+          ),
             const SizedBox(height: 24),
 
             // Technical requirements
